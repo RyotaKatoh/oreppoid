@@ -1,11 +1,12 @@
 package main
 
 import (
-	"net/url"
+	"fmt"
+	"net/http"
 	"os"
 
-	"github.com/RyotaKatoh/oreppoid/app/mongo"
-	"github.com/RyotaKatoh/oreppoid/app/twitter"
+	"github.com/RyotaKatoh/oreppoid/app"
+	"github.com/RyotaKatoh/oreppoid/app/filters"
 	"github.com/RyotaKatoh/oreppoid/config"
 	"github.com/RyotaKatoh/oreppoid/lib/server-helper/logging"
 	"github.com/Sirupsen/logrus"
@@ -24,23 +25,32 @@ func getEnvVar(key, defaultVal string) string {
 func main() {
 
 	logrus.SetLevel(logrus.DebugLevel)
-	serverVersion := config.ServerVersion
 
 	mws := []alice.Constructor{
 		logging.NewHandler,
-		//		func(handler http.Handler) http.Handler{return filteres.RenderSetupHandler},
+		func(handler http.Handler) http.Handler { return filters.RenderSetupHandler(handler) },
 	}
 
-	//	appHandler := alice.New(mws...).Then(app.)
+	appHandler := alice.New(mws...).Then(app.BuildRouter())
+	http.Handle("/", appHandler)
 
-	twitterClient := twitter.NewTwitterClient()
-	v := url.Values{
-		"count":       {"200"},
-		"include_rts": {"false"},
-	}
+	port := getEnvVar("PORT", config.DefaultServerPort)
 
-	tweets := twitterClient.GetTweets(v)
+	addr := fmt.Sprintf(":%s", port)
+	logrus.Infof("Server listening on port %s", port)
+	http.ListenAndServe(addr, nil)
 
-	mongoClient := &mongo.MongoClient{}
-	mongoClient.SaveTweet(tweets)
+	/*
+		twitterClient := twitter.NewTwitterClient()
+		v := url.Values{
+			"count":       {"200"},
+			"include_rts": {"false"},
+		}
+
+		tweets := twitterClient.GetTweets(v)
+
+		mongoClient := &mongo.MongoClient{}
+		mongoClient.SaveTweet(tweets)
+
+	*/
 }
